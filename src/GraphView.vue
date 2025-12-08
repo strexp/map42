@@ -306,6 +306,8 @@ onMounted(() => {
 
   graphInstance.value = g
 
+  g.scene().fog = new THREE.FogExp2(0x000000, 0.0002)
+
   g.backgroundColor('#000000')
     .showNavInfo(false)
     .nodeRelSize(1)
@@ -320,6 +322,9 @@ onMounted(() => {
   g.graphData({ nodes, links })
 
   const controls = g.controls()
+
+  controls.maxDistance = 4000
+
   controls.addEventListener('start', () => {
     if (config.isRotating) {
       stopRotation()
@@ -349,7 +354,7 @@ onMounted(() => {
       return graphconfig.colors.node.selected(node.val)
     if (highlightNodes.value.has(node.id)) return graphconfig.colors.node.adj1(node.val)
     if (highlight2Nodes.value.has(node.id)) return graphconfig.colors.node.adj2(node.val)
-    return graphconfig.colors.node.default(node)
+    return graphconfig.colors.node.default(node, !!selectedNode.value)
   })
 
   g.linkColor((link: GraphLink) => {
