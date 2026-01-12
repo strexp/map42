@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import GraphView from './GraphView.vue';
+import GraphView from '@/components/GraphView.vue';
 import type { MapData } from './types'; // 假设 MapData 导出自 types
 
 const graphData = ref<MapData | null>(null);
