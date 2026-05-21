@@ -31,13 +31,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, watch, type PropType } from 'vue'
+import { onMounted, ref, reactive, watch, markRaw, type PropType } from 'vue'
 import Stats from 'stats.js'
 
 import InfoCard from '@/components/InfoCard.vue'
 import SearchPanel from '@/components/SearchPanel.vue'
 
-import type { GraphConfig, GraphNode, MapData } from './types'
+import type { GraphConfig, GraphNode, MapData } from '../types'
 import { processGraphData } from '@/utils/graphUtils'
 import { useGraphSearch } from '@/composables/useGraphSearch'
 import { useGraphInteraction } from '@/composables/useGraphInteraction'
@@ -62,7 +62,8 @@ const config: GraphConfig = reactive({
 
 // Composables
 const { searchQuery, searchResults, handleSearch, clearSearch, setNodesCache } = useGraphSearch()
-const { selectedNode, highlightNodes, highlight2Nodes, updateSelected } = useGraphInteraction(config)
+const { selectedNode, highlightNodes, highlight2Nodes, updateSelected } =
+  useGraphInteraction(config)
 const {
   initGraph,
   updateGraphData,
@@ -70,7 +71,7 @@ const {
   updateBackground,
   focusNode,
   toggleRotation: engineToggleRotation,
-  setRotationTarget
+  setRotationTarget,
 } = useGraphEngine()
 
 // --- Actions ---
@@ -125,7 +126,7 @@ const toggleBg = () => {
 
 const toggleText = () => {
   config.showText = !config.showText
-  refreshVisuals() // refreshVisuals 内部会重新调用 nodeThreeObject，读取最新的 config
+  refreshVisuals({ updateGeometry: true })
 }
 
 const toggleRotation = () => {
@@ -164,30 +165,35 @@ onMounted(() => {
     highlight2Nodes,
     onNodeClick: handleNodeClick,
     onBgClick: handleClose,
-    onTick: () => stats.value?.update()
+    onTick: () => stats.value?.update(),
   })
 
   // Initial Data Load
   const { nodes, links } = processGraphData(props.data.nodes, props.data.edges)
-  setNodesCache(nodes)
-  updateGraphData(nodes, links)
+  const rawNodes = markRaw(nodes)
+  const rawLinks = markRaw(links)
+
+  setNodesCache(rawNodes)
+  updateGraphData(rawNodes, rawLinks)
 })
 
 watch(
   () => props.data,
   (newData) => {
-    if (newData) {
-      handleClose()
-      if (config.isRotating) {
-        config.isRotating = false
-        engineToggleRotation(false)
-      }
-      const { nodes, links } = processGraphData(newData.nodes, newData.edges)
-      setNodesCache(nodes)
-      updateGraphData(nodes, links)
+    if (!newData) return
+    handleClose()
+    if (config.isRotating) {
+      config.isRotating = false
+      engineToggleRotation(false)
     }
+    const { nodes, links } = processGraphData(newData.nodes, newData.edges)
+
+    const rawNodes = markRaw(nodes)
+    const rawLinks = markRaw(links)
+
+    setNodesCache(rawNodes)
+    updateGraphData(rawNodes, rawLinks)
   },
-  { deep: true },
 )
 </script>
 

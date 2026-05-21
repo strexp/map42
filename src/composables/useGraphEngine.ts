@@ -1,8 +1,7 @@
 // src/composables/useGraphEngine.ts
-import { ref, onUnmounted } from 'vue'
+import { shallowRef, markRaw, onUnmounted } from 'vue'
 import ForceGraph3D, { type ForceGraph3DInstance } from '3d-force-graph'
 import * as THREE from 'three'
-import { VideoTexture } from 'three'
 import SpriteText from 'three-spritetext'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
@@ -22,7 +21,25 @@ interface EngineProps {
 }
 
 export function useGraphEngine() {
-  const graphInstance = ref<ForceGraph3DInstance | null>(null)
+  const graphInstance = shallowRef<ForceGraph3DInstance | null>(null)
+
+  const nodeObjCache = new Map<string, THREE.Object3D>()
+
+  const clearCache = () => {
+    nodeObjCache.forEach((group) => {
+      group.traverse((child) => {
+        if (child instanceof THREE.Mesh || child instanceof THREE.Sprite) {
+          child.geometry.dispose()
+          if (Array.isArray(child.material)) {
+            child.material.forEach((m) => m.dispose())
+          } else {
+            child.material.dispose()
+          }
+        }
+      })
+    })
+    nodeObjCache.clear()
+  }
 
   const initGraph = ({
     container,
@@ -34,11 +51,12 @@ export function useGraphEngine() {
     onBgClick,
     onTick,
   }: EngineProps) => {
-
-    const g = ForceGraph3D({
-      controlType: 'trackball',
-      rendererConfig: { antialias: true, alpha: true },
-    })(container)
+    const g = markRaw(
+      ForceGraph3D({
+        controlType: 'orbit',
+        rendererConfig: { antialias: true, alpha: true },
+      })(container),
+    )
 
     graphInstance.value = g
 
@@ -72,6 +90,11 @@ export function useGraphEngine() {
     g.nodeThreeObject((n: any) => {
       if (!config.showText) return null
       const node = n as GraphNode
+
+      if (nodeObjCache.has(node.id)) {
+        return nodeObjCache.get(node.id)!
+      }
+
       const group = new THREE.Object3D()
       const sprite = new SpriteText(node.name)
       sprite.material.depthWrite = false
@@ -83,6 +106,7 @@ export function useGraphEngine() {
       sprite.strokeColor = '#000000'
       sprite.position.z = node.size || 1
       group.add(sprite)
+      nodeObjCache.set(node.id, group)
       return group
     })
     g.nodeThreeObjectExtend(true)
@@ -151,16 +175,20 @@ export function useGraphEngine() {
   }
 
   const updateGraphData = (nodes: GraphNode[], links: GraphLink[]) => {
+    clearCache()
     graphInstance.value?.graphData({ nodes, links })
   }
 
-  const refreshVisuals = () => {
+  const refreshVisuals = (options = { updateGeometry: false }) => {
     const g = graphInstance.value
     if (!g) return
     g.nodeColor(g.nodeColor())
       .linkWidth(g.linkWidth())
       .linkColor(g.linkColor())
-      .nodeThreeObject(g.nodeThreeObject())
+
+    if (options.updateGeometry) {
+      g.nodeThreeObject(g.nodeThreeObject())
+    }
   }
 
   const updateBackground = (showBg: boolean) => {
@@ -196,6 +224,7 @@ export function useGraphEngine() {
   }
 
   onUnmounted(() => {
+    clearCache()
     graphInstance.value?._destructor()
   })
 

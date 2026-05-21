@@ -19,8 +19,8 @@ const graphconfig = {
     },
   },
   resolution: {
-    node: 32,
-    edge: 32,
+    node: 16,
+    edge: 2,
   },
   opacity: {
     node: 1.0,

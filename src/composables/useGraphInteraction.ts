@@ -1,11 +1,11 @@
 // src/composables/useGraphInteraction.ts
-import { ref } from 'vue'
+import { shallowRef } from 'vue'
 import type { GraphNode, GraphLink, GraphConfig } from '../types'
 
 export function useGraphInteraction(config: GraphConfig) {
-  const selectedNode = ref<GraphNode | null>(null)
-  const highlightNodes = ref<Set<string>>(new Set())
-  const highlight2Nodes = ref<Set<string>>(new Set())
+  const selectedNode = shallowRef<GraphNode | null>(null)
+  const highlightNodes = shallowRef<Set<string>>(new Set())
+  const highlight2Nodes = shallowRef<Set<string>>(new Set())
 
   // 保持对修改过的 Link 的引用，以便重置状态
   let modifiedLinks: GraphLink[] = []
