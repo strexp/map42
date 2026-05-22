@@ -47,8 +47,8 @@ const graphconfig = {
   size: {
     link: {
       default: 0,
-      adj1: 0.4,
-      adj2: 0.3,
+      adj1: 0.6,
+      adj2: 0.4,
       others: 0.13,
     },
   },

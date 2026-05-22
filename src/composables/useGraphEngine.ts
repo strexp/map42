@@ -111,6 +111,19 @@ export function useGraphEngine() {
     })
     g.nodeThreeObjectExtend(true)
 
+    g.linkVisibility((l: any) => {
+      if (!selectedNode.value) return true
+      const link = l as GraphLink
+      switch (link._state) {
+        case 1:
+          return true
+        case 2:
+          return true
+        default:
+          return false
+      }
+    })
+
     // --- Colors & Styling ---
     g.nodeColor((n: any) => {
       const node = n as GraphNode
@@ -182,9 +195,7 @@ export function useGraphEngine() {
   const refreshVisuals = (options = { updateGeometry: false }) => {
     const g = graphInstance.value
     if (!g) return
-    g.nodeColor(g.nodeColor())
-      .linkWidth(g.linkWidth())
-      .linkColor(g.linkColor())
+    g.nodeColor(g.nodeColor()).linkWidth(g.linkWidth()).linkColor(g.linkColor())
 
     if (options.updateGeometry) {
       g.nodeThreeObject(g.nodeThreeObject())
