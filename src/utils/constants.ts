@@ -31,7 +31,8 @@ const graphconfig = {
       default: (n: GraphNode, sel: boolean = false) => {
         if (n.peers.size == 1) return `rgba(200,100,100,${n.val / 30})`
         const c = getcolor(parseFloat(n.centrality))
-        return `rgba(${c.r},${c.g},${c.b},${sel ? 0.3 : n.val / 100})`
+        if (sel) return 'rgba(255,255,255,0.2)'
+        return `rgba(${c.r},${c.g},${c.b},${n.val / 100})`
       },
       selected: (i: number) => `rgba(100,255,255,${i / 10})`,
       adj1: (i: number) => `rgba(255,200,0,${i / 20})`,
