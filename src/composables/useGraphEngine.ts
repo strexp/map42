@@ -4,10 +4,10 @@ import ForceGraph3D, { type ForceGraph3DInstance } from '3d-force-graph'
 import * as THREE from 'three'
 import SpriteText from 'three-spritetext'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
-import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js'
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { graphconfig, LDR_URLS } from '@/utils/constants'
 import type { GraphConfig, GraphLink, GraphNode } from '../types'
+import { randFloat } from 'three/src/math/MathUtils.js'
 
 interface EngineProps {
   container: HTMLElement
@@ -69,6 +69,9 @@ export function useGraphEngine() {
       .linkResolution(graphconfig.resolution.edge)
       .nodeOpacity(graphconfig.opacity.node)
       .linkOpacity(graphconfig.opacity.edge)
+      .linkDirectionalParticleSpeed(0.005)
+      .linkDirectionalParticleWidth(1)
+      .linkDirectionalParticleResolution(3)
       .nodeLabel(null)
       .onEngineTick(() => onTick && onTick())
 
@@ -147,6 +150,18 @@ export function useGraphEngine() {
       }
     })
 
+    // disable particles for now
+    // g.linkDirectionalParticles((l: any) => {
+    //   const link = l as GraphLink
+    //   if (!selectedNode.value) return 0
+    //   if (link._state == 1) return 3
+    //   return 0
+    // })
+
+    g.linkDirectionalParticleOffset(() => {
+      return randFloat(0, 1)
+    })
+
     g.linkWidth((l: any) => {
       const link = l as GraphLink
       if (!selectedNode.value) return graphconfig.size.link.default
@@ -175,11 +190,8 @@ export function useGraphEngine() {
     )
     composer.addPass(bloomPass)
 
-    const fxaaPass = new ShaderPass(FXAAShader)
-    const pixelRatio = g.renderer().getPixelRatio()
-    fxaaPass.material.uniforms['resolution'].value.x = 1 / (container.offsetWidth * pixelRatio)
-    fxaaPass.material.uniforms['resolution'].value.y = 1 / (container.offsetHeight * pixelRatio)
-    composer.addPass(fxaaPass)
+    const smaaPass = new SMAAPass()
+    composer.addPass(smaaPass)
 
     // --- Initial Background ---
     updateBackground(config.showBg)
