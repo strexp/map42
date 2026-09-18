@@ -29,8 +29,8 @@ import type { PropType } from 'vue'
 import type { GraphNode } from '../types'
 
 defineProps({
-  searchQuery: String,
-  searchResults: Array as PropType<GraphNode[]>,
+  searchQuery: { type: String, default: '' },
+  searchResults: { type: Array as PropType<GraphNode[]>, default: () => [] },
 })
 
 const emit = defineEmits(['update:searchQuery', 'search', 'clear', 'select'])

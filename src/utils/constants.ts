@@ -1,5 +1,5 @@
 import { getcolor } from './blackbody'
-import type { GraphNode } from './types'
+import type { GraphNode } from '../types'
 
 const LDR_URLS = [
   '/static/skybox/right.png',

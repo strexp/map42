@@ -70,7 +70,7 @@
 
 <script setup lang="ts">
 import type { PropType } from 'vue'
-import type { GraphConfig, GraphNode } from './types'
+import type { GraphConfig, GraphNode } from '../types'
 
 defineProps({
   config: { type: Object as PropType<GraphConfig>, required: true },

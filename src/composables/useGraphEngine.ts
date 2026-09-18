@@ -1,13 +1,25 @@
 // src/composables/useGraphEngine.ts
 import { shallowRef, markRaw, onUnmounted } from 'vue'
-import ForceGraph3D, { type ForceGraph3DInstance } from '3d-force-graph'
+import ForceGraph3D, {
+  type ConfigOptions,
+  type ForceGraph3DInstance,
+} from '3d-force-graph'
 import * as THREE from 'three'
 import SpriteText from 'three-spritetext'
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
+import type { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { graphconfig, LDR_URLS } from '@/utils/constants'
 import type { GraphConfig, GraphLink, GraphNode } from '../types'
 import { randFloat } from 'three/src/math/MathUtils.js'
+
+type GraphInstance = ForceGraph3DInstance<GraphNode, GraphLink>
+
+// `3d-force-graph` only declares a constructor in its typings, while the
+// runtime API is a curried factory: ForceGraph3D(options)(element).
+type ForceGraph3DFactory = (
+  configOptions?: ConfigOptions,
+) => (element: HTMLElement) => GraphInstance
 
 interface EngineProps {
   container: HTMLElement
@@ -21,7 +33,7 @@ interface EngineProps {
 }
 
 export function useGraphEngine() {
-  const graphInstance = shallowRef<ForceGraph3DInstance | null>(null)
+  const graphInstance = shallowRef<GraphInstance | null>(null)
 
   const nodeObjCache = new Map<string, THREE.Object3D>()
 
@@ -51,8 +63,9 @@ export function useGraphEngine() {
     onBgClick,
     onTick,
   }: EngineProps) => {
+    const createGraph = ForceGraph3D as unknown as ForceGraph3DFactory
     const g = markRaw(
-      ForceGraph3D({
+      createGraph({
         controlType: 'orbit',
         rendererConfig: { antialias: true, alpha: true },
       })(container),
@@ -72,14 +85,14 @@ export function useGraphEngine() {
       .linkDirectionalParticleSpeed(0.005)
       .linkDirectionalParticleWidth(1)
       .linkDirectionalParticleResolution(3)
-      .nodeLabel(null)
+      .nodeLabel(null as unknown as string)
       .onEngineTick(() => onTick && onTick())
 
     // --- Physics ---
-    g.d3Force('link').distance(200)
+    g.d3Force('link')?.distance(200)
 
     // --- Controls ---
-    const controls = g.controls()
+    const controls = g.controls() as unknown as OrbitControls
     controls.maxDistance = 4000
     controls.addEventListener('start', () => {
       // 如果正在自动旋转，用户交互时停止
@@ -90,9 +103,8 @@ export function useGraphEngine() {
     })
 
     // --- Node Objects (Text) ---
-    g.nodeThreeObject((n: any) => {
+    const buildNodeObject = (node: GraphNode): THREE.Object3D | null => {
       if (!config.showText) return null
-      const node = n as GraphNode
 
       if (nodeObjCache.has(node.id)) {
         return nodeObjCache.get(node.id)!
@@ -111,12 +123,12 @@ export function useGraphEngine() {
       group.add(sprite)
       nodeObjCache.set(node.id, group)
       return group
-    })
+    }
+    g.nodeThreeObject(buildNodeObject as unknown as (node: GraphNode) => THREE.Object3D)
     g.nodeThreeObjectExtend(true)
 
-    g.linkVisibility((l: any) => {
+    g.linkVisibility((link) => {
       if (!selectedNode.value) return true
-      const link = l as GraphLink
       switch (link._state) {
         case 1:
           return true
@@ -128,8 +140,7 @@ export function useGraphEngine() {
     })
 
     // --- Colors & Styling ---
-    g.nodeColor((n: any) => {
-      const node = n as GraphNode
+    g.nodeColor((node) => {
       if (selectedNode.value && node.id === selectedNode.value.id)
         return graphconfig.colors.node.selected(node.val)
       if (highlightNodes.value.has(node.id)) return graphconfig.colors.node.adj1(node.val)
@@ -137,8 +148,7 @@ export function useGraphEngine() {
       return graphconfig.colors.node.default(node, !!selectedNode.value)
     })
 
-    g.linkColor((l: any) => {
-      const link = l as GraphLink
+    g.linkColor((link) => {
       if (!selectedNode.value) return graphconfig.colors.edge.default
       switch (link._state) {
         case 1:
@@ -162,8 +172,7 @@ export function useGraphEngine() {
       return randFloat(0, 1)
     })
 
-    g.linkWidth((l: any) => {
-      const link = l as GraphLink
+    g.linkWidth((link) => {
       if (!selectedNode.value) return graphconfig.size.link.default
       switch (link._state) {
         case 1:
@@ -176,7 +185,7 @@ export function useGraphEngine() {
     })
 
     // --- Events ---
-    g.onNodeClick((n) => onNodeClick(n as GraphNode))
+    g.onNodeClick((node) => onNodeClick(node))
       .onBackgroundClick(onBgClick)
       .onLinkClick(onBgClick)
 
@@ -236,14 +245,15 @@ export function useGraphEngine() {
 
   const toggleRotation = (isActive: boolean) => {
     if (!graphInstance.value) return
-    const controls = graphInstance.value.controls()
+    const controls = graphInstance.value.controls() as unknown as OrbitControls
     controls.autoRotate = isActive
     controls.autoRotateSpeed = graphconfig.rotate.speed
   }
 
   const setRotationTarget = (x: number, y: number, z: number) => {
     if (!graphInstance.value) return
-    graphInstance.value.controls().target.set(x, y, z)
+    const controls = graphInstance.value.controls() as unknown as OrbitControls
+    controls.target.set(x, y, z)
   }
 
   onUnmounted(() => {
