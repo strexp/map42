@@ -2,12 +2,13 @@
 import { shallowRef, markRaw, onUnmounted } from 'vue'
 import ForceGraph3D, { type ConfigOptions, type ForceGraph3DInstance } from '3d-force-graph'
 import * as THREE from 'three'
-import SpriteText from 'three-spritetext'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { graphconfig, LDR_URLS } from '@/utils/constants'
 import { BatchedLinkRenderer } from '@/utils/batchedLinks'
+import { NodeRenderer } from '@/utils/nodeRenderer'
+import { InstancedTextLayer } from '@/utils/instancedText'
 import type { GraphConfig, GraphLink, GraphNode } from '../types'
 
 type GraphInstance = ForceGraph3DInstance<GraphNode, GraphLink>
@@ -32,26 +33,24 @@ interface EngineProps {
 export function useGraphEngine() {
   const graphInstance = shallowRef<GraphInstance | null>(null)
 
-  const nodeObjCache = new Map<string, THREE.Object3D>()
-
   let linkRenderer: BatchedLinkRenderer | null = null
+  let nodeRenderer: NodeRenderer | null = null
+  let textRenderer: InstancedTextLayer | null = null
   let currentLinks: GraphLink[] = []
   let selectedRef: { value: GraphNode | null } | null = null
+  let highlight1Ref: { value: Set<string> } | null = null
+  let highlight2Ref: { value: Set<string> } | null = null
+  let configRef: GraphConfig | null = null
+  let perfCounter = 0
 
-  const clearCache = () => {
-    nodeObjCache.forEach((group) => {
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.Sprite) {
-          child.geometry.dispose()
-          if (Array.isArray(child.material)) {
-            child.material.forEach((m) => m.dispose())
-          } else {
-            child.material.dispose()
-          }
-        }
-      })
-    })
-    nodeObjCache.clear()
+  const textHeightOf = (node: GraphNode) => (node.size || 1) * 0.7
+
+  const resolveNodeColor = (node: GraphNode): string => {
+    if (selectedRef?.value && node.id === selectedRef.value.id)
+      return graphconfig.colors.node.selected(node.val)
+    if (highlight1Ref?.value.has(node.id)) return graphconfig.colors.node.adj1(node.val)
+    if (highlight2Ref?.value.has(node.id)) return graphconfig.colors.node.adj2(node.val)
+    return graphconfig.colors.node.default(node, !!selectedRef?.value)
   }
 
   const initGraph = ({
@@ -74,22 +73,31 @@ export function useGraphEngine() {
 
     graphInstance.value = g
     selectedRef = selectedNode
+    highlight1Ref = highlightNodes
+    highlight2Ref = highlight2Nodes
+    configRef = config
 
     // --- Configuration ---
-    g.scene().fog = new THREE.FogExp2(0x000000, 0.0002)
+    g.scene().fog = new THREE.FogExp2(0x000000, 0.0004)
     g.backgroundColor('#000000')
       .showNavInfo(false)
-      .nodeRelSize(1)
-      .nodeResolution(graphconfig.resolution.node)
-      .nodeOpacity(graphconfig.opacity.node)
       .nodeLabel(null as unknown as string)
       .onEngineTick(() => {
         linkRenderer?.updatePositions()
+        nodeRenderer?.updatePositions()
+        textRenderer?.updatePositions()
         if (onTick) onTick()
+        // TEMP instrumentation
+        if (perfCounter++ % 60 === 0) {
+          const info = g.renderer().info.render
+          console.log(`[perf] drawCalls=${info.calls} triangles=${info.triangles} frame=${info.frame}`)
+        }
       })
 
-    // Edges are rendered by a single batched `LineSegments2` layer per `_state`.
+    // Nodes, edges and labels each render through a single batched draw call.
     linkRenderer = new BatchedLinkRenderer(g.scene())
+    nodeRenderer = new NodeRenderer(g.scene())
+    textRenderer = new InstancedTextLayer(g.scene())
 
     // --- Physics ---
     g.d3Force('link')?.distance(200)
@@ -105,42 +113,32 @@ export function useGraphEngine() {
       }
     })
 
-    // --- Node Objects (Text) ---
-    const buildNodeObject = (node: GraphNode): THREE.Object3D | null => {
-      if (!config.showText) return null
-
-      if (nodeObjCache.has(node.id)) {
-        return nodeObjCache.get(node.id)!
+    // --- Node picking ---
+    // Visual spheres are drawn by `NodeRenderer`; `3d-force-graph` only keeps
+    // invisible, geometry-less pick objects so its click/hover logic still works.
+    const pickSphere = new THREE.Sphere()
+    const pickPoint = new THREE.Vector3()
+    const buildPickObject = (node: GraphNode): THREE.Object3D => {
+      const object = new THREE.Object3D()
+      object.visible = false
+      const radius = Math.cbrt(node.val || 1)
+      object.raycast = function (raycaster, intersects) {
+        pickSphere.center.setFromMatrixPosition(this.matrixWorld)
+        pickSphere.radius = radius
+        if (!raycaster.ray.intersectsSphere(pickSphere)) return
+        raycaster.ray.closestPointToPoint(pickSphere.center, pickPoint)
+        intersects.push({
+          distance: raycaster.ray.origin.distanceTo(pickPoint),
+          point: pickPoint.clone(),
+          object: this,
+        })
       }
-
-      const group = new THREE.Object3D()
-      const sprite = new SpriteText(node.name)
-      sprite.material.depthWrite = false
-      sprite.material.depthTest = false
-      sprite.renderOrder = 999
-      sprite.color = '#999999'
-      sprite.textHeight = (node.size || 1) * 0.7
-      sprite.strokeWidth = 1
-      sprite.strokeColor = '#000000'
-      sprite.position.z = node.size || 1
-      group.add(sprite)
-      nodeObjCache.set(node.id, group)
-      return group
+      return object
     }
-    g.nodeThreeObject(buildNodeObject as unknown as (node: GraphNode) => THREE.Object3D)
-    g.nodeThreeObjectExtend(true)
+    g.nodeThreeObject(buildPickObject as unknown as (node: GraphNode) => THREE.Object3D)
 
     // Edges are drawn by `BatchedLinkRenderer`; disable the per-link objects.
     g.linkVisibility(false)
-
-    // --- Colors & Styling ---
-    g.nodeColor((node) => {
-      if (selectedNode.value && node.id === selectedNode.value.id)
-        return graphconfig.colors.node.selected(node.val)
-      if (highlightNodes.value.has(node.id)) return graphconfig.colors.node.adj1(node.val)
-      if (highlight2Nodes.value.has(node.id)) return graphconfig.colors.node.adj2(node.val)
-      return graphconfig.colors.node.default(node, !!selectedNode.value)
-    })
 
     // --- Events ---
     g.onNodeClick((node) => onNodeClick(node))
@@ -167,21 +165,20 @@ export function useGraphEngine() {
   }
 
   const updateGraphData = (nodes: GraphNode[], links: GraphLink[]) => {
-    clearCache()
     currentLinks = links
     graphInstance.value?.graphData({ nodes, links })
+    nodeRenderer?.setData(nodes)
+    nodeRenderer?.refreshColors(resolveNodeColor)
+    textRenderer?.setData(nodes, textHeightOf)
+    textRenderer?.setVisible(configRef?.showText ?? true)
     linkRenderer?.update(currentLinks, selectedRef?.value ?? null)
   }
 
-  const refreshVisuals = (options = { updateGeometry: false }) => {
-    const g = graphInstance.value
-    if (!g) return
-    g.nodeColor(g.nodeColor())
+  const refreshVisuals = () => {
+    if (!graphInstance.value) return
+    nodeRenderer?.refreshColors(resolveNodeColor)
+    textRenderer?.setVisible(configRef?.showText ?? true)
     linkRenderer?.update(currentLinks, selectedRef?.value ?? null)
-
-    if (options.updateGeometry) {
-      g.nodeThreeObject(g.nodeThreeObject())
-    }
   }
 
   const updateBackground = (showBg: boolean) => {
@@ -219,10 +216,16 @@ export function useGraphEngine() {
 
   onUnmounted(() => {
     linkRenderer?.dispose()
+    nodeRenderer?.dispose()
+    textRenderer?.dispose()
     linkRenderer = null
+    nodeRenderer = null
+    textRenderer = null
     currentLinks = []
     selectedRef = null
-    clearCache()
+    highlight1Ref = null
+    highlight2Ref = null
+    configRef = null
     graphInstance.value?._destructor()
   })
 

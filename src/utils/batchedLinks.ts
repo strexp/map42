@@ -4,6 +4,7 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js'
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { graphconfig } from './constants'
+import { parseRgba } from './color'
 import type { GraphLink, GraphNode } from '../types'
 
 // One layer per `_state`: 0 = default, 1 = hop1, 2 = hop2.
@@ -20,18 +21,6 @@ const LAYER_SPECS: LayerSpec[] = [
   { style: graphconfig.colors.edge.adj1, width: graphconfig.size.link.adj1, worldUnits: true },
   { style: graphconfig.colors.edge.adj2, width: graphconfig.size.link.adj2, worldUnits: true },
 ]
-
-const RGBA_RE = /rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)/
-
-const parseRgba = (style: string): { color: THREE.Color; alpha: number } => {
-  const match = RGBA_RE.exec(style)
-  if (!match) return { color: new THREE.Color(style), alpha: 1 }
-  const [, r, g, b, a] = match
-  return {
-    color: new THREE.Color(`rgb(${r}, ${g}, ${b})`),
-    alpha: a === undefined ? 1 : Number(a),
-  }
-}
 
 interface Layer {
   object: LineSegments2
@@ -69,7 +58,7 @@ export class BatchedLinkRenderer {
         worldUnits: spec.worldUnits,
         transparent: true,
         opacity: graphconfig.opacity.edge * alpha,
-        depthWrite: false,
+        depthWrite: true,
         fog: true,
       })
 

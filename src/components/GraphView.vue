@@ -153,7 +153,7 @@ const toggleBg = () => {
 
 const toggleText = () => {
   config.showText = !config.showText
-  refreshVisuals({ updateGeometry: true })
+  refreshVisuals()
 }
 
 const toggleRotation = () => {

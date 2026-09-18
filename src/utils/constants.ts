@@ -32,7 +32,7 @@ const CACHE_TTL_MS = 30 * 60 * 1000
 const graphconfig = {
   passes: {
     bloom: {
-      strength: 1.2,
+      strength: 1.3,
       radius: 1,
       threshold: 0.1,
     },
@@ -58,7 +58,7 @@ const graphconfig = {
       adj2: (i: number) => `rgba(255,30,0,${i / 20})`,
     },
     edge: {
-      default: 'rgba(255,255,255,0.15)',
+      default: 'rgba(255,255,255,0.13)',
       adj1: 'rgba(0,255,255,0.4)',
       adj2: 'rgba(255,60,150,0.2)',
       others: 'rgba(255,255,255,0.1)',
