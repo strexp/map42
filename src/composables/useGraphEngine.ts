@@ -7,8 +7,8 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { graphconfig, LDR_URLS } from '@/utils/constants'
+import { BatchedLinkRenderer } from '@/utils/batchedLinks'
 import type { GraphConfig, GraphLink, GraphNode } from '../types'
-import { randFloat } from 'three/src/math/MathUtils.js'
 
 type GraphInstance = ForceGraph3DInstance<GraphNode, GraphLink>
 
@@ -33,6 +33,10 @@ export function useGraphEngine() {
   const graphInstance = shallowRef<GraphInstance | null>(null)
 
   const nodeObjCache = new Map<string, THREE.Object3D>()
+
+  let linkRenderer: BatchedLinkRenderer | null = null
+  let currentLinks: GraphLink[] = []
+  let selectedRef: { value: GraphNode | null } | null = null
 
   const clearCache = () => {
     nodeObjCache.forEach((group) => {
@@ -69,6 +73,7 @@ export function useGraphEngine() {
     )
 
     graphInstance.value = g
+    selectedRef = selectedNode
 
     // --- Configuration ---
     g.scene().fog = new THREE.FogExp2(0x000000, 0.0002)
@@ -76,14 +81,15 @@ export function useGraphEngine() {
       .showNavInfo(false)
       .nodeRelSize(1)
       .nodeResolution(graphconfig.resolution.node)
-      .linkResolution(graphconfig.resolution.edge)
       .nodeOpacity(graphconfig.opacity.node)
-      .linkOpacity(graphconfig.opacity.edge)
-      .linkDirectionalParticleSpeed(0.005)
-      .linkDirectionalParticleWidth(1)
-      .linkDirectionalParticleResolution(3)
       .nodeLabel(null as unknown as string)
-      .onEngineTick(() => onTick && onTick())
+      .onEngineTick(() => {
+        linkRenderer?.updatePositions()
+        if (onTick) onTick()
+      })
+
+    // Edges are rendered by a single batched `LineSegments2` layer per `_state`.
+    linkRenderer = new BatchedLinkRenderer(g.scene())
 
     // --- Physics ---
     g.d3Force('link')?.distance(200)
@@ -124,17 +130,8 @@ export function useGraphEngine() {
     g.nodeThreeObject(buildNodeObject as unknown as (node: GraphNode) => THREE.Object3D)
     g.nodeThreeObjectExtend(true)
 
-    g.linkVisibility((link) => {
-      if (!selectedNode.value) return true
-      switch (link._state) {
-        case 1:
-          return true
-        case 2:
-          return true
-        default:
-          return false
-      }
-    })
+    // Edges are drawn by `BatchedLinkRenderer`; disable the per-link objects.
+    g.linkVisibility(false)
 
     // --- Colors & Styling ---
     g.nodeColor((node) => {
@@ -143,42 +140,6 @@ export function useGraphEngine() {
       if (highlightNodes.value.has(node.id)) return graphconfig.colors.node.adj1(node.val)
       if (highlight2Nodes.value.has(node.id)) return graphconfig.colors.node.adj2(node.val)
       return graphconfig.colors.node.default(node, !!selectedNode.value)
-    })
-
-    g.linkColor((link) => {
-      if (!selectedNode.value) return graphconfig.colors.edge.default
-      switch (link._state) {
-        case 1:
-          return graphconfig.colors.edge.adj1
-        case 2:
-          return graphconfig.colors.edge.adj2
-        default:
-          return graphconfig.colors.edge.others
-      }
-    })
-
-    // disable particles for now
-    // g.linkDirectionalParticles((l: any) => {
-    //   const link = l as GraphLink
-    //   if (!selectedNode.value) return 0
-    //   if (link._state == 1) return 3
-    //   return 0
-    // })
-
-    g.linkDirectionalParticleOffset(() => {
-      return randFloat(0, 1)
-    })
-
-    g.linkWidth((link) => {
-      if (!selectedNode.value) return graphconfig.size.link.default
-      switch (link._state) {
-        case 1:
-          return graphconfig.size.link.adj1
-        case 2:
-          return graphconfig.size.link.adj2
-        default:
-          return graphconfig.size.link.others
-      }
     })
 
     // --- Events ---
@@ -207,13 +168,16 @@ export function useGraphEngine() {
 
   const updateGraphData = (nodes: GraphNode[], links: GraphLink[]) => {
     clearCache()
+    currentLinks = links
     graphInstance.value?.graphData({ nodes, links })
+    linkRenderer?.update(currentLinks, selectedRef?.value ?? null)
   }
 
   const refreshVisuals = (options = { updateGeometry: false }) => {
     const g = graphInstance.value
     if (!g) return
-    g.nodeColor(g.nodeColor()).linkWidth(g.linkWidth()).linkColor(g.linkColor())
+    g.nodeColor(g.nodeColor())
+    linkRenderer?.update(currentLinks, selectedRef?.value ?? null)
 
     if (options.updateGeometry) {
       g.nodeThreeObject(g.nodeThreeObject())
@@ -254,6 +218,10 @@ export function useGraphEngine() {
   }
 
   onUnmounted(() => {
+    linkRenderer?.dispose()
+    linkRenderer = null
+    currentLinks = []
+    selectedRef = null
     clearCache()
     graphInstance.value?._destructor()
   })
