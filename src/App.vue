@@ -20,7 +20,6 @@
     <WarningBanner
       :visible="showNodeWarning"
       :node-count="nodeCount"
-      :threshold="nodeWarningThreshold"
       @dismiss="warningDismissed = true"
     />
 
@@ -59,7 +58,7 @@ import { CACHE_TTL_MS, dataUrl, nodeWarningThreshold } from '@/utils/constants'
 import { getCachedGraph, putCachedGraph } from '@/utils/cache'
 import { formatRelativeTime, formatTimestamp } from '@/utils/format'
 import { readUrlState, writeUrlState } from '@/utils/urlState'
-import type { MapData, Version } from './types'
+import type { MapData, Version } from '@/types'
 
 const initialUrlState = readUrlState()
 const graphData = ref<MapData | null>(null)

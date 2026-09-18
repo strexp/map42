@@ -1,6 +1,7 @@
 // src/utils/instancedText.ts
 import * as THREE from 'three'
 import { getSdfFont } from './sdfFont'
+import { graphconfig } from './constants'
 import type { GraphNode } from '../types'
 
 /**
@@ -62,7 +63,10 @@ export class InstancedTextLayer {
       new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0], 3),
     )
     geometry.setIndex([0, 1, 2, 2, 1, 3])
-    geometry.setAttribute('iNode', new THREE.InstancedBufferAttribute(new Float32Array(nodeIndices), 1))
+    geometry.setAttribute(
+      'iNode',
+      new THREE.InstancedBufferAttribute(new Float32Array(nodeIndices), 1),
+    )
     geometry.setAttribute('iPenX', new THREE.InstancedBufferAttribute(new Float32Array(penX), 1))
     geometry.setAttribute('iUv', new THREE.InstancedBufferAttribute(new Float32Array(uvs), 4))
     geometry.instanceCount = count
@@ -93,8 +97,8 @@ export class InstancedTextLayer {
         uDataWidth: { value: this.dataWidth },
         uCellOffset: { value: font.cellOffset },
         uCellSize: { value: font.cellSize },
-        uColor: { value: new THREE.Color('#888888') },
-        uOpacity: { value: 0.8 },
+        uColor: { value: new THREE.Color(graphconfig.colors.text) },
+        uOpacity: { value: graphconfig.opacity.text },
       },
       vertexShader: /* glsl */ `
         uniform sampler2D uNodeData;
@@ -135,7 +139,7 @@ export class InstancedTextLayer {
 
     const mesh = new THREE.Mesh(geometry, material)
     mesh.frustumCulled = false
-    mesh.renderOrder = 999
+    mesh.renderOrder = graphconfig.renderOrder.text
     this.scene.add(mesh)
 
     this.geometry = geometry

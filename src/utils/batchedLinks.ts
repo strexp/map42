@@ -5,6 +5,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import { graphconfig } from './constants'
 import { parseRgba } from './color'
+import { resolveLinkEnds } from './graphUtils'
 import type { GraphLink, GraphNode } from '../types'
 
 // One layer per `_state`: 0 = default, 1 = hop1, 2 = hop2.
@@ -15,8 +16,11 @@ interface LayerSpec {
 }
 
 const LAYER_SPECS: LayerSpec[] = [
-  // Default links keep the old 1px `THREE.Line` look.
-  { style: graphconfig.colors.edge.default, width: 1, worldUnits: false },
+  {
+    style: graphconfig.colors.edge.default,
+    width: graphconfig.size.link.default,
+    worldUnits: false,
+  },
   // Highlighted links keep the old world-unit cylinder width.
   { style: graphconfig.colors.edge.adj1, width: graphconfig.size.link.adj1, worldUnits: true },
   { style: graphconfig.colors.edge.adj2, width: graphconfig.size.link.adj2, worldUnits: true },
@@ -64,7 +68,7 @@ export class BatchedLinkRenderer {
 
       const object = new LineSegments2(geometry, material)
       object.frustumCulled = false
-      object.renderOrder = 10
+      object.renderOrder = graphconfig.renderOrder.link
       object.visible = false
       this.scene.add(object)
 
@@ -114,8 +118,7 @@ export class BatchedLinkRenderer {
     const data = layer.data
     let offset = 0
     for (const link of bucket) {
-      const source = typeof link.source === 'object' ? (link.source as GraphNode) : null
-      const target = typeof link.target === 'object' ? (link.target as GraphNode) : null
+      const { source, target } = resolveLinkEnds(link)
       if (!source || !target || source.x == null || target.x == null) continue
       data[offset++] = source.x
       data[offset++] = source.y || 0

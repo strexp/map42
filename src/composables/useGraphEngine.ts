@@ -41,9 +41,8 @@ export function useGraphEngine() {
   let highlight1Ref: { value: Set<string> } | null = null
   let highlight2Ref: { value: Set<string> } | null = null
   let configRef: GraphConfig | null = null
-  let perfCounter = 0
 
-  const textHeightOf = (node: GraphNode) => (node.size || 1) * 0.7
+  const textHeightOf = (node: GraphNode) => (node.size || 1) * graphconfig.size.textHeightFactor
 
   const resolveNodeColor = (node: GraphNode): string => {
     if (selectedRef?.value && node.id === selectedRef.value.id)
@@ -78,7 +77,7 @@ export function useGraphEngine() {
     configRef = config
 
     // --- Configuration ---
-    g.scene().fog = new THREE.FogExp2(0x000000, 0.0004)
+    g.scene().fog = new THREE.FogExp2(0x000000, graphconfig.scene.fogDensity)
     g.backgroundColor('#000000')
       .showNavInfo(false)
       .nodeLabel(null as unknown as string)
@@ -87,11 +86,6 @@ export function useGraphEngine() {
         nodeRenderer?.updatePositions()
         textRenderer?.updatePositions()
         if (onTick) onTick()
-        // TEMP instrumentation
-        if (perfCounter++ % 60 === 0) {
-          const info = g.renderer().info.render
-          console.log(`[perf] drawCalls=${info.calls} triangles=${info.triangles} frame=${info.frame}`)
-        }
       })
 
     // Nodes, edges and labels each render through a single batched draw call.
@@ -100,11 +94,11 @@ export function useGraphEngine() {
     textRenderer = new InstancedTextLayer(g.scene())
 
     // --- Physics ---
-    g.d3Force('link')?.distance(200)
+    g.d3Force('link')?.distance(graphconfig.scene.linkDistance)
 
     // --- Controls ---
     const controls = g.controls() as unknown as OrbitControls
-    controls.maxDistance = 4000
+    controls.maxDistance = graphconfig.scene.maxCameraDistance
     controls.addEventListener('start', () => {
       // Stop auto-rotation when the user interacts
       if (config.isRotating) {
@@ -160,25 +154,25 @@ export function useGraphEngine() {
 
     // --- Initial Background ---
     updateBackground(config.showBg)
+  }
 
-    return g
+  const applyRenderState = () => {
+    nodeRenderer?.refreshColors(resolveNodeColor)
+    textRenderer?.setVisible(configRef?.showText ?? true)
+    linkRenderer?.update(currentLinks, selectedRef?.value ?? null)
   }
 
   const updateGraphData = (nodes: GraphNode[], links: GraphLink[]) => {
     currentLinks = links
     graphInstance.value?.graphData({ nodes, links })
     nodeRenderer?.setData(nodes)
-    nodeRenderer?.refreshColors(resolveNodeColor)
     textRenderer?.setData(nodes, textHeightOf)
-    textRenderer?.setVisible(configRef?.showText ?? true)
-    linkRenderer?.update(currentLinks, selectedRef?.value ?? null)
+    applyRenderState()
   }
 
   const refreshVisuals = () => {
     if (!graphInstance.value) return
-    nodeRenderer?.refreshColors(resolveNodeColor)
-    textRenderer?.setVisible(configRef?.showText ?? true)
-    linkRenderer?.update(currentLinks, selectedRef?.value ?? null)
+    applyRenderState()
   }
 
   const updateBackground = (showBg: boolean) => {
@@ -197,7 +191,7 @@ export function useGraphEngine() {
     graphInstance.value.cameraPosition(
       { x: (node.x || 0) * 2, y: (node.y || 0) * 2, z: (node.z || 0) * 2 },
       { x: node.x || 0, y: node.y || 0, z: node.z || 0 },
-      3000,
+      graphconfig.scene.focusDistance,
     )
   }
 
@@ -230,7 +224,6 @@ export function useGraphEngine() {
   })
 
   return {
-    graphInstance,
     initGraph,
     updateGraphData,
     refreshVisuals,

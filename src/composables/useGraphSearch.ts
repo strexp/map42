@@ -1,17 +1,14 @@
 // src/composables/useGraphSearch.ts
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import type { GraphNode } from '../types'
 import { debounce } from '../utils/debounce'
 import { fuzzyScore } from '../utils/fuzzy'
-
-const SEARCH_DEBOUNCE_MS = 180
-const MAX_RESULTS = 10
-const MIN_QUERY_LENGTH = 2
+import { SEARCH_DEBOUNCE_MS, SEARCH_MAX_RESULTS, SEARCH_MIN_QUERY_LENGTH } from '../utils/constants'
 
 export function useGraphSearch() {
   const searchQuery = ref('')
   const searchResults = ref<GraphNode[]>([])
-  const allNodesCache = ref<GraphNode[]>([])
+  const allNodesCache = shallowRef<GraphNode[]>([])
 
   const setNodesCache = (nodes: GraphNode[]) => {
     allNodesCache.value = nodes
@@ -19,7 +16,7 @@ export function useGraphSearch() {
 
   const runSearch = () => {
     const query = searchQuery.value.trim().toLowerCase()
-    if (query.length < MIN_QUERY_LENGTH) {
+    if (query.length < SEARCH_MIN_QUERY_LENGTH) {
       searchResults.value = []
       return
     }
@@ -33,7 +30,7 @@ export function useGraphSearch() {
     }
 
     scored.sort((a, b) => b.score - a.score)
-    searchResults.value = scored.slice(0, MAX_RESULTS).map((entry) => entry.node)
+    searchResults.value = scored.slice(0, SEARCH_MAX_RESULTS).map((entry) => entry.node)
   }
 
   const handleSearch = debounce(runSearch, SEARCH_DEBOUNCE_MS)

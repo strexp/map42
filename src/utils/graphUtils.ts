@@ -1,45 +1,68 @@
 // src/utils/graphUtils.ts
-import type { GraphLink, GraphNode, MapEdge, MapNode, ProcessedGraph } from '../types'
+import type {
+  GraphLink,
+  GraphNode,
+  MapData,
+  ProcessedGraph,
+  ProcessedLink,
+  ProcessedNode,
+} from '../types'
 
-export const processGraphData = (rawNodes: MapNode[], rawEdges: MapEdge[]) => {
-  const nodesMap = new Map<string, GraphNode>()
+const pushPeer = (map: Map<string, string[]>, key: string, value: string) => {
+  const list = map.get(key)
+  if (list) list.push(value)
+  else map.set(key, [value])
+}
 
-  const processedNodes: GraphNode[] = rawNodes.map((n) => {
-    const val = (n.size || 1) * 40 - 60
-    const node: GraphNode = {
-      ...n,
-      id: String(n.id),
-      val: val > 0 ? val : 5,
-      peers: new Set(),
-      links: [],
+/**
+ * Pure, serializable transform from the raw API payload to the worker shape.
+ * Shared by the Web Worker and the main-thread fallback so both paths agree.
+ */
+export const buildProcessedGraph = (data: MapData): ProcessedGraph => {
+  const validIds = new Set(data.nodes.map((node) => String(node.id)))
+  const peerMap = new Map<string, string[]>()
+  const links: ProcessedLink[] = []
+
+  for (const edge of data.edges) {
+    const source = String(edge.sourceID)
+    const target = String(edge.targetID)
+    if (!validIds.has(source) || !validIds.has(target)) continue
+
+    links.push({ source, target })
+    pushPeer(peerMap, source, target)
+    pushPeer(peerMap, target, source)
+  }
+
+  const nodes: ProcessedNode[] = data.nodes.map((node) => {
+    const id = String(node.id)
+    const size = node.size || 1
+    const rawVal = size * 40 - 60
+    return {
+      id,
+      asn: node.asn,
+      name: node.name,
+      size,
+      centrality: node.centrality,
+      val: rawVal > 0 ? rawVal : 5,
+      peerIds: peerMap.get(id) ?? [],
     }
-    nodesMap.set(node.id, node)
-    return node
   })
 
-  const processedEdges: GraphLink[] = rawEdges.map((e) => {
-    const sId = String(e.sourceID)
-    const tId = String(e.targetID)
-    const sourceNode = nodesMap.get(sId)
-    const targetNode = nodesMap.get(tId)
+  return { nodes, links }
+}
 
-    const link: GraphLink = {
-      source: sId,
-      target: tId,
-      _state: 0,
-    }
-
-    if (sourceNode && targetNode) {
-      sourceNode.peers.add(targetNode)
-      targetNode.peers.add(sourceNode)
-      sourceNode.links.push(link)
-      targetNode.links.push(link)
-    }
-
-    return link
-  })
-
-  return { nodes: processedNodes, links: processedEdges, nodesMap }
+/** Resolve a link's endpoints, which `3d-force-graph` swaps to node objects. */
+export const resolveLinkEnds = (
+  link: GraphLink,
+): { source: GraphNode | null; target: GraphNode | null; sourceId: string; targetId: string } => {
+  const source = typeof link.source === 'object' ? link.source : null
+  const target = typeof link.target === 'object' ? link.target : null
+  return {
+    source,
+    target,
+    sourceId: source?.id ?? String(link.source),
+    targetId: target?.id ?? String(link.target),
+  }
 }
 
 // Rebuild the object graph (Sets / cross references) from the worker payload.

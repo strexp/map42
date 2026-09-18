@@ -37,8 +37,8 @@ import Stats from 'stats.js'
 import InfoCard from '@/components/InfoCard.vue'
 import SearchPanel from '@/components/SearchPanel.vue'
 
-import type { GraphNode, MapData } from '../types'
-import { hydrateProcessedGraph, processGraphData } from '@/utils/graphUtils'
+import type { GraphNode, MapData } from '@/types'
+import { buildProcessedGraph, hydrateProcessedGraph } from '@/utils/graphUtils'
 import { readUrlState, writeUrlState } from '@/utils/urlState'
 import { useGraphSearch } from '@/composables/useGraphSearch'
 import { useGraphInteraction } from '@/composables/useGraphInteraction'
@@ -81,7 +81,7 @@ const buildGraph = async (data: MapData) => {
     return hydrateProcessedGraph(processed)
   } catch (error) {
     console.warn('Graph worker unavailable, processing on main thread:', error)
-    return processGraphData(data.nodes, data.edges)
+    return hydrateProcessedGraph(buildProcessedGraph(data))
   }
 }
 

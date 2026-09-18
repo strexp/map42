@@ -22,7 +22,6 @@ import { TriangleAlert, X } from 'lucide-vue-next'
 defineProps<{
   visible: boolean
   nodeCount: number
-  threshold: number
 }>()
 
 defineEmits<{ dismiss: [] }>()

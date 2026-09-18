@@ -1,6 +1,7 @@
 // src/composables/useGraphInteraction.ts
 import { shallowRef } from 'vue'
 import type { GraphNode, GraphLink, GraphConfig } from '../types'
+import { resolveLinkEnds } from '../utils/graphUtils'
 
 export function useGraphInteraction(config: GraphConfig) {
   const selectedNode = shallowRef<GraphNode | null>(null)
@@ -29,18 +30,8 @@ export function useGraphInteraction(config: GraphConfig) {
         link._state = 1
         modifiedLinks.push(link)
 
-        // Determine the other node ID
-        const otherNodeId =
-          (typeof link.source === 'object' ? (link.source as GraphNode).id : link.source) ===
-          node.id
-            ? typeof link.target === 'object'
-              ? (link.target as GraphNode).id
-              : link.target
-            : typeof link.source === 'object'
-              ? (link.source as GraphNode).id
-              : link.source
-
-        if (typeof otherNodeId === 'string') highlightNodes.value.add(otherNodeId)
+        const { sourceId, targetId } = resolveLinkEnds(link)
+        highlightNodes.value.add(sourceId === node.id ? targetId : sourceId)
       })
 
       if (config.showHop2) {
@@ -53,13 +44,10 @@ export function useGraphInteraction(config: GraphConfig) {
               modifiedLinks.push(link)
             }
 
-            const sId =
-              typeof link.source === 'object' ? (link.source as GraphNode).id : link.source
-            const tId =
-              typeof link.target === 'object' ? (link.target as GraphNode).id : link.target
+            const { sourceId, targetId } = resolveLinkEnds(link)
 
-            if (!highlightNodes.value.has(sId as string)) highlight2Nodes.value.add(sId as string)
-            if (!highlightNodes.value.has(tId as string)) highlight2Nodes.value.add(tId as string)
+            if (!highlightNodes.value.has(sourceId)) highlight2Nodes.value.add(sourceId)
+            if (!highlightNodes.value.has(targetId)) highlight2Nodes.value.add(targetId)
           })
         })
       }

@@ -1,9 +1,8 @@
 // src/utils/nodeRenderer.ts
 import * as THREE from 'three'
 import { parseRgba } from './color'
+import { graphconfig } from './constants'
 import type { GraphNode } from '../types'
-
-const SPHERE_SEGMENTS = 12
 
 export type NodeColorResolver = (node: GraphNode) => string
 
@@ -37,7 +36,8 @@ export class NodeRenderer {
     this.nodes = nodes
     if (nodes.length === 0) return
 
-    const geometry = new THREE.SphereGeometry(1, SPHERE_SEGMENTS, SPHERE_SEGMENTS)
+    const segments = graphconfig.resolution.node
+    const geometry = new THREE.SphereGeometry(1, segments, segments)
     // `instanceColor` defines USE_COLOR, which requires a `color` attribute to
     // exist; a constant white attribute lets the per-instance colour show through.
     const vertexCount = geometry.attributes.position.count
@@ -59,7 +59,10 @@ export class NodeRenderer {
           '#include <common>',
           '#include <common>\nattribute float instanceAlpha;\nvarying float vInstanceAlpha;',
         )
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvInstanceAlpha = instanceAlpha;')
+        .replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\nvInstanceAlpha = instanceAlpha;',
+        )
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nvarying float vInstanceAlpha;')
         .replace(

@@ -28,7 +28,6 @@ interface MapNode {
   name: string
   size: number
   centrality: string
-  color: string
 }
 
 interface MapEdge {
@@ -58,7 +57,6 @@ interface ProcessedNode {
   name: string
   size: number
   centrality: string
-  color: string
   val: number
   peerIds: string[]
 }
@@ -78,6 +76,17 @@ interface CachedGraph {
   cachedAt: number
 }
 
+interface GraphWorkerRequest {
+  id: number
+  data: MapData
+}
+
+interface GraphWorkerResponse {
+  id: number
+  result?: ProcessedGraph
+  error?: string
+}
+
 export type {
   GraphConfig,
   MapData,
@@ -90,4 +99,6 @@ export type {
   ProcessedLink,
   ProcessedGraph,
   CachedGraph,
+  GraphWorkerRequest,
+  GraphWorkerResponse,
 }

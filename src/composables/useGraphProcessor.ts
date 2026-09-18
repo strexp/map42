@@ -1,13 +1,7 @@
 // src/composables/useGraphProcessor.ts
 import { onUnmounted, toRaw } from 'vue'
 import GraphWorker from '../workers/graph.worker?worker'
-import type { MapData, ProcessedGraph } from '../types'
-
-interface WorkerResponse {
-  id: number
-  result?: ProcessedGraph
-  error?: string
-}
+import type { GraphWorkerResponse, MapData, ProcessedGraph } from '../types'
 
 interface PendingEntry {
   resolve: (value: ProcessedGraph) => void
@@ -23,7 +17,7 @@ export function useGraphProcessor() {
     if (worker) return worker
 
     worker = new GraphWorker()
-    worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+    worker.onmessage = (event: MessageEvent<GraphWorkerResponse>) => {
       const entry = pending.get(event.data.id)
       if (!entry) return
       pending.delete(event.data.id)
@@ -35,6 +29,9 @@ export function useGraphProcessor() {
       const error = new Error(event.message || 'Graph worker failed')
       pending.forEach((entry) => entry.reject(error))
       pending.clear()
+      // Drop the failed worker so the next request can spin up a fresh one.
+      worker?.terminate()
+      worker = null
     }
     return worker
   }
