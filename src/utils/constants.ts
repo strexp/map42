@@ -10,6 +10,17 @@ const LDR_URLS = [
   '/static/skybox/back.png',
 ]
 
+const DEFAULT_NODE_WARNING_THRESHOLD = 200
+
+const parseThreshold = (raw: string | undefined): number => {
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_NODE_WARNING_THRESHOLD
+}
+
+// Warn when a dataset looks suspiciously small. Override with
+// VITE_NODE_WARNING_THRESHOLD (e.g. in .env.local).
+const nodeWarningThreshold = parseThreshold(import.meta.env.VITE_NODE_WARNING_THRESHOLD)
+
 const graphconfig = {
   passes: {
     bloom: {
@@ -58,4 +69,4 @@ const graphconfig = {
   },
 }
 
-export { LDR_URLS, graphconfig }
+export { LDR_URLS, graphconfig, nodeWarningThreshold }

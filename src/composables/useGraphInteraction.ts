@@ -7,7 +7,7 @@ export function useGraphInteraction(config: GraphConfig) {
   const highlightNodes = shallowRef<Set<string>>(new Set())
   const highlight2Nodes = shallowRef<Set<string>>(new Set())
 
-  // 保持对修改过的 Link 的引用，以便重置状态
+  // Keep references to modified links so their state can be reset
   let modifiedLinks: GraphLink[] = []
 
   const updateSelected = (node: GraphNode | null, callback?: () => void) => {
@@ -31,7 +31,8 @@ export function useGraphInteraction(config: GraphConfig) {
 
         // Determine the other node ID
         const otherNodeId =
-          (typeof link.source === 'object' ? (link.source as GraphNode).id : link.source) === node.id
+          (typeof link.source === 'object' ? (link.source as GraphNode).id : link.source) ===
+          node.id
             ? typeof link.target === 'object'
               ? (link.target as GraphNode).id
               : link.target
@@ -52,8 +53,10 @@ export function useGraphInteraction(config: GraphConfig) {
               modifiedLinks.push(link)
             }
 
-            const sId = typeof link.source === 'object' ? (link.source as GraphNode).id : link.source
-            const tId = typeof link.target === 'object' ? (link.target as GraphNode).id : link.target
+            const sId =
+              typeof link.source === 'object' ? (link.source as GraphNode).id : link.source
+            const tId =
+              typeof link.target === 'object' ? (link.target as GraphNode).id : link.target
 
             if (!highlightNodes.value.has(sId as string)) highlight2Nodes.value.add(sId as string)
             if (!highlightNodes.value.has(tId as string)) highlight2Nodes.value.add(tId as string)
@@ -69,6 +72,6 @@ export function useGraphInteraction(config: GraphConfig) {
     selectedNode,
     highlightNodes,
     highlight2Nodes,
-    updateSelected
+    updateSelected,
   }
 }

@@ -1,9 +1,6 @@
 // src/composables/useGraphEngine.ts
 import { shallowRef, markRaw, onUnmounted } from 'vue'
-import ForceGraph3D, {
-  type ConfigOptions,
-  type ForceGraph3DInstance,
-} from '3d-force-graph'
+import ForceGraph3D, { type ConfigOptions, type ForceGraph3DInstance } from '3d-force-graph'
 import * as THREE from 'three'
 import SpriteText from 'three-spritetext'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
@@ -95,7 +92,7 @@ export function useGraphEngine() {
     const controls = g.controls() as unknown as OrbitControls
     controls.maxDistance = 4000
     controls.addEventListener('start', () => {
-      // 如果正在自动旋转，用户交互时停止
+      // Stop auto-rotation when the user interacts
       if (config.isRotating) {
         config.isRotating = false
         controls.autoRotate = false

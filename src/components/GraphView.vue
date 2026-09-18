@@ -1,9 +1,9 @@
 <template>
   <div class="graph-wrapper">
-    <!-- 3D 容器 -->
+    <!-- 3D canvas -->
     <div ref="container" id="container"></div>
 
-    <!-- 搜索面板组件 -->
+    <!-- Search panel -->
     <SearchPanel
       v-model:searchQuery="searchQuery"
       :searchResults="searchResults"
@@ -12,10 +12,10 @@
       @select="selectFromSearch"
     />
 
-    <!-- 性能统计 Stats 挂载点 -->
+    <!-- Stats.js mount point -->
     <div ref="statsContainer" class="stats-panel"></div>
 
-    <!-- 详细信息卡片 -->
+    <!-- Details card -->
     <InfoCard
       :selectedNode="selectedNode"
       :config="config"
@@ -80,7 +80,7 @@ const handleNodeClick = (node: GraphNode) => {
   if (!node) return
   if (selectedNode.value && selectedNode.value.id === node.id) return
 
-  // 停止旋转
+  // Stop rotation
   if (config.isRotating) {
     config.isRotating = false
     engineToggleRotation(false)
@@ -202,9 +202,9 @@ watch(
   position: relative;
   width: 100%;
   height: 100vh;
-  background-color: #000;
+  background-color: var(--bg-void);
   overflow: hidden;
-  font-family: 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
 }
 
 #container {

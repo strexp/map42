@@ -32,6 +32,6 @@ export function useGraphSearch() {
     searchResults,
     handleSearch,
     clearSearch,
-    setNodesCache
+    setNodesCache,
   }
 }

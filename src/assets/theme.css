@@ -1,0 +1,182 @@
+:root {
+  --bg-void: #03060d;
+  --bg-panel: rgba(6, 16, 27, 0.72);
+  --bg-panel-solid: rgba(6, 16, 27, 0.94);
+  --bg-elevated: rgba(10, 24, 38, 0.95);
+  --border-hud: rgba(34, 227, 255, 0.32);
+  --border-hud-strong: rgba(34, 227, 255, 0.72);
+  --accent: #22e3ff;
+  --accent-dim: #0a7f96;
+  --accent-soft: rgba(34, 227, 255, 0.14);
+  --accent-glow: rgba(34, 227, 255, 0.45);
+  --text-primary: #d6f2fb;
+  --text-muted: #7fa3b3;
+  --text-faint: rgba(214, 242, 251, 0.45);
+  --warn: #ffb020;
+  --warn-strong: #ff7a1a;
+  --warn-soft: rgba(255, 176, 32, 0.12);
+  --danger: #ff4d6d;
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --hud-clip: polygon(
+    0 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% 100%,
+    12px 100%,
+    0 calc(100% - 12px)
+  );
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-glow);
+  color: #001014;
+}
+
+/* Shared HUD surface */
+.hud-panel {
+  position: relative;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-hud);
+  clip-path: var(--hud-clip);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  box-shadow:
+    inset 0 0 32px rgba(34, 227, 255, 0.06),
+    inset 0 0 0 1px rgba(34, 227, 255, 0.04);
+  color: var(--text-primary);
+}
+
+/* Corner brackets (top-left / bottom-right stay square after the clip) */
+.hud-panel::before,
+.hud-panel::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.hud-panel::before {
+  top: 0;
+  left: 0;
+  border-top: 2px solid var(--accent);
+  border-left: 2px solid var(--accent);
+}
+
+.hud-panel::after {
+  right: 0;
+  bottom: 0;
+  border-right: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+/* Shared HUD button */
+.hud-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    text-shadow 0.2s ease;
+}
+
+.hud-btn:hover {
+  color: var(--text-primary);
+  background: var(--accent-soft);
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+
+.hud-btn.is-active {
+  color: var(--accent);
+  text-shadow: 0 0 10px var(--accent-glow);
+}
+
+.hud-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-dim) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--accent-dim);
+  border-radius: 0;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+@keyframes hud-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes hud-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

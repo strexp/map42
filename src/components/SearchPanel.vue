@@ -1,31 +1,44 @@
 <template>
   <div class="search-panel">
-    <div class="search-input-wrapper">
-      <span class="search-icon">🔍</span>
+    <div class="search-input-wrapper hud-panel">
+      <Search class="search-icon" :size="16" aria-hidden="true" />
       <input
         :value="searchQuery"
-        @input="onInput"
-        placeholder="Search ASN or Name..."
         class="search-input"
+        type="text"
+        placeholder="Search ASN or name…"
+        aria-label="Search ASN or name"
+        @input="onInput"
       />
-      <button v-if="searchQuery" @click="$emit('clear')" class="clear-btn">✕</button>
-    </div>
-    <ul v-if="searchResults.length > 0" class="search-results">
-      <li
-        v-for="node in searchResults"
-        :key="node.id"
-        @click="$emit('select', node)"
-        class="result-item"
+      <button
+        v-if="searchQuery"
+        class="clear-btn"
+        aria-label="Clear search"
+        @click="$emit('clear')"
       >
-        <span class="result-asn">{{ node.asn }}</span>
-        <span class="result-name">{{ node.name }}</span>
-      </li>
-    </ul>
+        <X :size="15" />
+      </button>
+    </div>
+
+    <transition name="results">
+      <ul v-if="searchResults.length > 0" class="search-results hud-panel">
+        <li
+          v-for="node in searchResults"
+          :key="node.id"
+          class="result-item"
+          @click="$emit('select', node)"
+        >
+          <span class="result-asn">{{ node.asn }}</span>
+          <span class="result-name">{{ node.name }}</span>
+        </li>
+      </ul>
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { PropType } from 'vue'
+import { Search, X } from 'lucide-vue-next'
 import type { GraphNode } from '../types'
 
 defineProps({
@@ -49,82 +62,117 @@ const onInput = (e: Event) => {
   left: 20px;
   z-index: 30;
   width: 250px;
-  font-family: 'Segoe UI', sans-serif;
 }
 
 .search-input-wrapper {
   display: flex;
   align-items: center;
-  background: rgba(20, 20, 25, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  gap: 8px;
   padding: 0 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.2s ease;
+}
+
+.search-input-wrapper:focus-within {
+  border-color: var(--border-hud-strong);
 }
 
 .search-icon {
-  margin-right: 8px;
-  font-size: 14px;
-  filter: grayscale(1);
+  flex: 0 0 auto;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent-glow));
 }
 
 .search-input {
+  flex: 1 1 auto;
+  min-width: 0;
   background: transparent;
   border: none;
-  color: #fff;
-  padding: 10px 0;
-  width: 100%;
+  color: var(--text-primary);
+  padding: 11px 0;
   outline: none;
-  font-size: 14px;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.search-input::placeholder {
+  color: var(--text-faint);
 }
 
 .clear-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-muted);
   cursor: pointer;
-  font-size: 16px;
+  transition: color 0.2s ease;
 }
+
 .clear-btn:hover {
-  color: #fff;
+  color: var(--accent);
 }
 
 .search-results {
   list-style: none;
-  margin: 5px 0 0 0;
-  padding: 0;
-  background: rgba(30, 30, 35, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  margin: 8px 0 0;
+  padding: 4px;
   max-height: 300px;
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
 .result-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  transition: background 0.2s;
+  gap: 2px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .result-item:hover {
-  background: rgba(0, 255, 255, 0.1);
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
 }
 
 .result-asn {
-  font-size: 12px;
-  color: #00bcd4;
-  font-family: monospace;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--accent);
 }
 
 .result-name {
-  font-size: 13px;
-  color: #ddd;
+  font-size: 0.82rem;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.results-enter-active,
+.results-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.results-enter-from,
+.results-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@media (max-width: 640px) {
+  .search-panel {
+    width: calc(100vw - 40px);
+  }
 }
 </style>

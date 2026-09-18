@@ -1,22 +1,38 @@
 <template>
   <transition name="fade">
-    <div v-if="selectedNode" class="info-card">
+    <div v-if="selectedNode" class="info-card hud-panel">
       <div class="card-header">
         <div class="card-title">{{ selectedNode.name }}</div>
-        <button class="close-btn" @click="$emit('handleClose')">✕</button>
+        <button class="close-btn" aria-label="Close details" @click="$emit('handleClose')">
+          <X :size="16" />
+        </button>
       </div>
+
       <div class="card-subtitle">
         <div class="asn-row">
           <span class="badge">{{ selectedNode.asn }}</span>
-          <button class="icon-btn" @click="$emit('focusSelect')" title="Center Camera">⌖</button>
+          <button
+            class="icon-btn"
+            title="Center camera"
+            aria-label="Center camera"
+            @click="$emit('focusSelect')"
+          >
+            <Crosshair :size="16" />
+          </button>
         </div>
         <div class="meta">
-          <span>Centrality: {{ formatNumber(selectedNode.centrality) }}</span>
+          <span class="hud-label">Centrality</span>
+          <span class="meta-value">{{ formatNumber(selectedNode.centrality) }}</span>
         </div>
       </div>
+
       <div class="divider"></div>
+
       <div class="card-text peers-view">
-        <b>Peers: {{ selectedNode.peers?.size || 0 }}</b>
+        <div class="peers-heading">
+          <Share2 :size="14" aria-hidden="true" />
+          <b>Peers: {{ selectedNode.peers?.size || 0 }}</b>
+        </div>
         <div class="peer-list">
           <span
             v-for="peer in Array.from(selectedNode.peers || [])"
@@ -30,38 +46,44 @@
       </div>
 
       <div class="divider"></div>
+
       <div class="toolbar">
         <button
-          class="tool-btn"
+          class="hud-btn tool-btn"
+          :class="{ 'is-active': config.showHop2 }"
+          title="Toggle 2nd hop"
           @click="$emit('toggleHop2')"
-          :class="{ active: config.showHop2 }"
-          title="Toggle Hop 2"
         >
-          ☍ 2nd Hop
+          <Waypoints :size="15" aria-hidden="true" />
+          <span>2nd Hop</span>
         </button>
         <button
-          class="tool-btn"
+          class="hud-btn tool-btn"
+          :class="{ 'is-active': config.showBg }"
+          title="Toggle background"
           @click="$emit('toggleBg')"
-          :class="{ active: config.showBg }"
-          title="Toggle Background"
         >
-          ☁ BG
+          <Cloud v-if="config.showBg" :size="15" aria-hidden="true" />
+          <CloudOff v-else :size="15" aria-hidden="true" />
+          <span>BG</span>
         </button>
         <button
-          class="tool-btn"
+          class="hud-btn tool-btn"
+          :class="{ 'is-active': config.showText }"
+          title="Toggle labels"
           @click="$emit('toggleText')"
-          :class="{ active: config.showText }"
-          title="Toggle Text"
         >
-          T Text
+          <Type :size="15" aria-hidden="true" />
+          <span>Text</span>
         </button>
         <button
-          class="tool-btn"
+          class="hud-btn tool-btn"
+          :class="{ 'is-active': config.isRotating }"
+          title="Auto rotate"
           @click="$emit('toggleRotation')"
-          :class="{ active: config.isRotating }"
-          title="Auto Rotate"
         >
-          ↻ Rotate
+          <RotateCw :size="15" aria-hidden="true" />
+          <span>Rotate</span>
         </button>
       </div>
     </div>
@@ -70,11 +92,12 @@
 
 <script setup lang="ts">
 import type { PropType } from 'vue'
+import { Cloud, CloudOff, Crosshair, RotateCw, Share2, Type, Waypoints, X } from 'lucide-vue-next'
 import type { GraphConfig, GraphNode } from '../types'
 
 defineProps({
   config: { type: Object as PropType<GraphConfig>, required: true },
-  selectedNode: Object as PropType<GraphNode | null>,
+  selectedNode: { type: Object as PropType<GraphNode | null>, default: null },
 })
 
 defineEmits([
@@ -89,7 +112,7 @@ defineEmits([
 
 const formatNumber = (val: string | number) => {
   const n = Number(val)
-  return isNaN(n) ? val : n.toFixed(4)
+  return isNaN(n) ? String(val) : n.toFixed(4)
 }
 </script>
 
@@ -99,84 +122,125 @@ const formatNumber = (val: string | number) => {
   top: 20px;
   right: 20px;
   width: 320px;
-  background: rgba(30, 30, 30, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border-radius: 4px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  max-width: calc(100vw - 40px);
+  z-index: 20;
   display: flex;
   flex-direction: column;
-  z-index: 20;
 }
 
 .card-header {
-  padding: 16px;
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: start;
+  gap: 8px;
+  padding: 16px 16px 8px;
 }
 
 .card-title {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 500;
-  line-height: 1.2;
+  line-height: 1.25;
+  color: var(--text-primary);
+  text-shadow: 0 0 14px rgba(34, 227, 255, 0.25);
 }
 
 .close-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
   background: transparent;
-  border: none;
-  color: #aaa;
-  font-size: 1.2rem;
+  border: 1px solid transparent;
+  color: var(--text-muted);
   cursor: pointer;
-  line-height: 1;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
 }
+
 .close-btn:hover {
-  color: #fff;
+  color: var(--accent);
+  border-color: var(--border-hud);
 }
 
 .card-subtitle {
-  padding: 0 16px 16px;
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.7);
+  padding: 0 16px 14px;
 }
 
 .asn-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .badge {
-  font-family: monospace;
-  background: #444;
-  padding: 2px 4px;
-  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--border-hud);
+  padding: 2px 6px;
 }
 
 .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
   background: none;
   border: none;
-  color: #00bcd4;
+  color: var(--accent);
   cursor: pointer;
-  font-size: 1.1em;
-  padding: 0;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+  transition: transform 0.2s ease;
+}
+
+.icon-btn:hover {
+  transform: scale(1.15);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.meta-value {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--text-primary);
 }
 
 .divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.12);
   width: 100%;
+  background: linear-gradient(90deg, transparent, var(--border-hud), transparent);
 }
 
 .card-text {
-  padding: 16px;
-  font-size: 0.875rem;
+  padding: 14px 16px;
+  font-size: 0.85rem;
 }
 
 .peers-view {
   max-height: 200px;
   overflow-y: auto;
+}
+
+.peers-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+}
+
+.peers-heading svg {
+  color: var(--accent);
 }
 
 .peer-list {
@@ -185,40 +249,61 @@ const formatNumber = (val: string | number) => {
 
 .peer-item {
   display: block;
-  padding: 4px 0;
-  color: rgba(255, 255, 255, 0.7);
+  padding: 5px 6px;
+  color: var(--text-muted);
   cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 2px solid transparent;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
+
 .peer-item:hover {
-  color: #00bcd4;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
 }
 
 .toolbar {
   display: flex;
-  justify-content: space-around;
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.2);
+  justify-content: space-between;
+  gap: 2px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.25);
 }
 
 .tool-btn {
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 4px;
-  transition: all 0.2s;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 4px;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
 }
 
-.tool-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+.fade-enter-active,
+.fade-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
 }
 
-.tool-btn.active {
-  color: #00bcd4;
-  text-shadow: 0 0 5px rgba(0, 188, 212, 0.5);
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateX(14px);
+}
+
+@media (max-width: 640px) {
+  .info-card {
+    top: auto;
+    bottom: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
 }
 </style>
