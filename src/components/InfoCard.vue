@@ -1,11 +1,21 @@
 <template>
   <transition name="fade">
-    <div v-if="selectedNode" class="info-card hud-panel">
+    <div v-if="selectedNode && (!isMobile || !collapsed)" class="info-card hud-panel">
       <div class="card-header">
         <div class="card-title">{{ selectedNode.name }}</div>
-        <button class="close-btn" aria-label="Close details" @click="$emit('handleClose')">
-          <X :size="16" />
-        </button>
+        <div class="card-actions">
+          <button
+            v-if="isMobile"
+            class="collapse-btn"
+            aria-label="Collapse details"
+            @click="collapsed = true"
+          >
+            <ChevronDown :size="16" />
+          </button>
+          <button class="close-btn" aria-label="Close details" @click="$emit('handleClose')">
+            <X :size="16" />
+          </button>
+        </div>
       </div>
 
       <div class="card-subtitle">
@@ -88,14 +98,37 @@
       </div>
     </div>
   </transition>
+
+  <transition name="fade">
+    <button
+      v-if="selectedNode && isMobile && collapsed"
+      class="info-fab hud-panel"
+      aria-label="Show node details"
+      @click="collapsed = false"
+    >
+      <Info :size="18" aria-hidden="true" />
+      <span class="fab-asn">{{ selectedNode.asn }}</span>
+    </button>
+  </transition>
 </template>
 
 <script setup lang="ts">
-import type { PropType } from 'vue'
-import { Cloud, CloudOff, Crosshair, RotateCw, Share2, Type, Waypoints, X } from 'lucide-vue-next'
+import { onBeforeUnmount, onMounted, ref, watch, type PropType } from 'vue'
+import {
+  ChevronDown,
+  Cloud,
+  CloudOff,
+  Crosshair,
+  Info,
+  RotateCw,
+  Share2,
+  Type,
+  Waypoints,
+  X,
+} from 'lucide-vue-next'
 import type { GraphConfig, GraphNode } from '../types'
 
-defineProps({
+const props = defineProps({
   config: { type: Object as PropType<GraphConfig>, required: true },
   selectedNode: { type: Object as PropType<GraphNode | null>, default: null },
 })
@@ -109,6 +142,31 @@ defineEmits([
   'toggleRotation',
   'handleNodeClick',
 ])
+
+const isMobile = ref(false)
+const collapsed = ref(false)
+
+const mediaQuery = window.matchMedia('(max-width: 640px)')
+
+const onMediaChange = (e: MediaQueryListEvent) => {
+  isMobile.value = e.matches
+}
+
+onMounted(() => {
+  isMobile.value = mediaQuery.matches
+  mediaQuery.addEventListener('change', onMediaChange)
+})
+
+onBeforeUnmount(() => {
+  mediaQuery.removeEventListener('change', onMediaChange)
+})
+
+watch(
+  () => props.selectedNode,
+  (node) => {
+    if (node) collapsed.value = false
+  },
+)
 
 const formatNumber = (val: string | number) => {
   const n = Number(val)
@@ -144,7 +202,8 @@ const formatNumber = (val: string | number) => {
   text-shadow: 0 0 14px rgba(34, 227, 255, 0.25);
 }
 
-.close-btn {
+.close-btn,
+.collapse-btn {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -161,9 +220,16 @@ const formatNumber = (val: string | number) => {
     border-color 0.2s ease;
 }
 
-.close-btn:hover {
+.close-btn:hover,
+.collapse-btn:hover {
   color: var(--accent);
   border-color: var(--border-hud);
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .card-subtitle {
@@ -295,6 +361,30 @@ const formatNumber = (val: string | number) => {
 .fade-leave-to {
   opacity: 0;
   transform: translateX(14px);
+}
+
+.info-fab {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 20;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-hud);
+  color: var(--accent);
+  cursor: pointer;
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+.fab-asn {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {
