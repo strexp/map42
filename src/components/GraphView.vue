@@ -31,17 +31,20 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, watch, markRaw, type PropType } from 'vue'
+import { onMounted, ref, watch, markRaw, type PropType } from 'vue'
 import Stats from 'stats.js'
 
 import InfoCard from '@/components/InfoCard.vue'
 import SearchPanel from '@/components/SearchPanel.vue'
 
-import type { GraphConfig, GraphNode, MapData } from '../types'
-import { processGraphData } from '@/utils/graphUtils'
+import type { GraphNode, MapData } from '../types'
+import { hydrateProcessedGraph, processGraphData } from '@/utils/graphUtils'
+import { readUrlState, writeUrlState } from '@/utils/urlState'
 import { useGraphSearch } from '@/composables/useGraphSearch'
 import { useGraphInteraction } from '@/composables/useGraphInteraction'
 import { useGraphEngine } from '@/composables/useGraphEngine'
+import { useGraphConfig } from '@/composables/useGraphConfig'
+import { useGraphProcessor } from '@/composables/useGraphProcessor'
 
 const props = defineProps({
   data: Object as PropType<MapData>,
@@ -53,12 +56,7 @@ const statsContainer = ref<HTMLElement | null>(null)
 const stats = ref<Stats | null>(null)
 
 // Config State
-const config: GraphConfig = reactive({
-  showHop2: true,
-  showBg: true,
-  showText: true,
-  isRotating: false,
-})
+const config = useGraphConfig()
 
 // Composables
 const { searchQuery, searchResults, handleSearch, clearSearch, setNodesCache } = useGraphSearch()
@@ -73,6 +71,33 @@ const {
   toggleRotation: engineToggleRotation,
   setRotationTarget,
 } = useGraphEngine()
+const { process: processGraph } = useGraphProcessor()
+
+// --- Data processing ---
+
+const buildGraph = async (data: MapData) => {
+  try {
+    const processed = await processGraph(data)
+    return hydrateProcessedGraph(processed)
+  } catch (error) {
+    console.warn('Graph worker unavailable, processing on main thread:', error)
+    return processGraphData(data.nodes, data.edges)
+  }
+}
+
+let dataToken = 0
+
+const applyData = async (data: MapData) => {
+  const token = ++dataToken
+  const { nodes, links } = await buildGraph(data)
+  if (token !== dataToken) return null
+
+  const rawNodes = markRaw(nodes)
+  const rawLinks = markRaw(links)
+  setNodesCache(rawNodes)
+  updateGraphData(rawNodes, rawLinks)
+  return rawNodes
+}
 
 // --- Actions ---
 
@@ -89,6 +114,7 @@ const handleNodeClick = (node: GraphNode) => {
   updateSelected(node, () => {
     refreshVisuals()
   })
+  writeUrlState({ asn: node.asn })
 }
 
 const handleClose = () => {
@@ -96,6 +122,7 @@ const handleClose = () => {
     refreshVisuals()
   })
   clearSearch()
+  writeUrlState({ asn: null })
 }
 
 const selectFromSearch = (node: GraphNode) => {
@@ -144,7 +171,7 @@ const toggleRotation = () => {
 
 // --- Lifecycle & Watchers ---
 
-onMounted(() => {
+onMounted(async () => {
   if (!props.data || !container.value) return
 
   // Init Stats
@@ -168,31 +195,30 @@ onMounted(() => {
     onTick: () => stats.value?.update(),
   })
 
-  // Initial Data Load
-  const { nodes, links } = processGraphData(props.data.nodes, props.data.edges)
-  const rawNodes = markRaw(nodes)
-  const rawLinks = markRaw(links)
+  // Initial data load
+  const nodes = await applyData(props.data)
+  if (!nodes) return
 
-  setNodesCache(rawNodes)
-  updateGraphData(rawNodes, rawLinks)
+  // Restore the node referenced by the shared URL.
+  const { asn } = readUrlState()
+  if (!asn) return
+  const target = nodes.find((node) => node.asn === asn)
+  if (!target) return
+
+  handleNodeClick(target)
+  window.setTimeout(() => focusNode(target), 1000)
 })
 
 watch(
   () => props.data,
-  (newData) => {
+  async (newData) => {
     if (!newData) return
     handleClose()
     if (config.isRotating) {
       config.isRotating = false
       engineToggleRotation(false)
     }
-    const { nodes, links } = processGraphData(newData.nodes, newData.edges)
-
-    const rawNodes = markRaw(nodes)
-    const rawLinks = markRaw(links)
-
-    setNodesCache(rawNodes)
-    updateGraphData(rawNodes, rawLinks)
+    await applyData(newData)
   },
 )
 </script>

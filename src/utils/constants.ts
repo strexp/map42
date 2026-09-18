@@ -1,5 +1,5 @@
 import { getcolor } from './blackbody'
-import type { GraphNode } from '../types'
+import type { GraphNode, Version } from '../types'
 
 const LDR_URLS = [
   '/static/skybox/right.png',
@@ -20,6 +20,14 @@ const parseThreshold = (raw: string | undefined): number => {
 // Warn when a dataset looks suspiciously small. Override with
 // VITE_NODE_WARNING_THRESHOLD (e.g. in .env.local).
 const nodeWarningThreshold = parseThreshold(import.meta.env.VITE_NODE_WARNING_THRESHOLD)
+
+const DEFAULT_DATA_BASE_URL = 'https://bgp-data.strexp.net/graph'
+const dataBaseUrl = (import.meta.env.VITE_DATA_BASE_URL || DEFAULT_DATA_BASE_URL).replace(/\/$/, '')
+
+const dataUrl = (version: Version) => `${dataBaseUrl}/${version}.json`
+
+// Serve cached graphs without re-fetching while they are younger than this.
+const CACHE_TTL_MS = 30 * 60 * 1000
 
 const graphconfig = {
   passes: {
@@ -69,4 +77,4 @@ const graphconfig = {
   },
 }
 
-export { LDR_URLS, graphconfig, nodeWarningThreshold }
+export { LDR_URLS, graphconfig, nodeWarningThreshold, dataUrl, CACHE_TTL_MS }

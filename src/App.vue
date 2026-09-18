@@ -26,6 +26,12 @@
 
     <GraphView v-if="graphData" :data="graphData" />
 
+    <div v-if="graphData" class="data-meta hud-panel" :title="dataUpdatedFull">
+      <Clock class="data-meta-icon" :size="14" aria-hidden="true" />
+      <span class="hud-label">Data</span>
+      <span class="data-meta-value">{{ dataUpdatedRelative }}</span>
+    </div>
+
     <div v-else-if="errorMessage" class="status-overlay">
       <TriangleAlert class="status-icon status-icon--error" :size="30" aria-hidden="true" />
       <p class="status-title">Data link failure</p>
@@ -46,14 +52,18 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RefreshCw, TriangleAlert } from 'lucide-vue-next'
+import { Clock, RefreshCw, TriangleAlert } from 'lucide-vue-next'
 import GraphView from '@/components/GraphView.vue'
 import WarningBanner from '@/components/WarningBanner.vue'
-import { nodeWarningThreshold } from '@/utils/constants'
-import type { MapData } from './types'
+import { CACHE_TTL_MS, dataUrl, nodeWarningThreshold } from '@/utils/constants'
+import { getCachedGraph, putCachedGraph } from '@/utils/cache'
+import { formatRelativeTime, formatTimestamp } from '@/utils/format'
+import { readUrlState, writeUrlState } from '@/utils/urlState'
+import type { MapData, Version } from './types'
 
+const initialUrlState = readUrlState()
 const graphData = ref<MapData | null>(null)
-const currentVersion = ref<'ipv4' | 'ipv6'>('ipv6')
+const currentVersion = ref<Version>(initialUrlState.version)
 const errorMessage = ref('')
 const warningDismissed = ref(false)
 
@@ -61,29 +71,62 @@ const nodeCount = computed(() => graphData.value?.nodes.length ?? 0)
 const showNodeWarning = computed(
   () => !warningDismissed.value && !!graphData.value && nodeCount.value < nodeWarningThreshold,
 )
+const dataUpdatedFull = computed(() =>
+  graphData.value ? formatTimestamp(graphData.value.created) : '',
+)
+const dataUpdatedRelative = computed(() =>
+  graphData.value ? formatRelativeTime(graphData.value.created) : '',
+)
 
-const loadData = async (version: 'ipv4' | 'ipv6') => {
+// Guards against out-of-order responses when switching versions quickly.
+let loadToken = 0
+
+const loadData = async (version: Version) => {
+  const token = ++loadToken
   graphData.value = null
   errorMessage.value = ''
   warningDismissed.value = false
-  try {
-    const r = await fetch(`https://bgp-data.strexp.net/graph/${version}.json`)
-    if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`)
-    graphData.value = (await r.json()) as MapData
+
+  const cached = await getCachedGraph(version)
+  if (token !== loadToken) return
+
+  // Serve fresh cache without hitting the network.
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+    graphData.value = cached.data
     currentVersion.value = version
+    writeUrlState({ version })
+    return
+  }
+
+  try {
+    const r = await fetch(dataUrl(version))
+    if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`)
+    const data = (await r.json()) as MapData
+    if (token !== loadToken) return
+    graphData.value = data
+    currentVersion.value = version
+    writeUrlState({ version })
+    void putCachedGraph(version, data)
   } catch (e) {
+    if (token !== loadToken) return
+    // Fall back to the stale cache when the network is unavailable.
+    if (cached) {
+      graphData.value = cached.data
+      currentVersion.value = version
+      return
+    }
     errorMessage.value = e instanceof Error ? e.message : String(e)
     console.error('Failed to load data:', e)
   }
 }
 
-const switchVersion = (version: 'ipv4' | 'ipv6') => {
+const switchVersion = (version: Version) => {
   if (currentVersion.value === version && graphData.value) return
   loadData(version)
 }
 
 onMounted(() => {
-  loadData('ipv6')
+  loadData(initialUrlState.version)
 })
 </script>
 
@@ -120,6 +163,28 @@ onMounted(() => {
 
 .version-btn + .version-btn {
   border-left: 1px solid rgba(34, 227, 255, 0.14);
+}
+
+.data-meta {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.data-meta-icon {
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.data-meta-value {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-primary);
 }
 
 .status-overlay {
@@ -181,6 +246,10 @@ onMounted(() => {
   .version-toggle {
     left: 20px;
     top: 72px;
+  }
+
+  .data-meta {
+    display: none;
   }
 }
 </style>

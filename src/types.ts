@@ -49,4 +49,45 @@ interface GraphConfig {
   isRotating: boolean
 }
 
-export type { GraphConfig, MapData, MapNode, MapEdge, GraphNode, GraphLink }
+type Version = 'ipv4' | 'ipv6'
+
+// Serializable node shape produced by the graph worker.
+interface ProcessedNode {
+  id: string
+  asn: string
+  name: string
+  size: number
+  centrality: string
+  color: string
+  val: number
+  peerIds: string[]
+}
+
+interface ProcessedLink {
+  source: string
+  target: string
+}
+
+interface ProcessedGraph {
+  nodes: ProcessedNode[]
+  links: ProcessedLink[]
+}
+
+interface CachedGraph {
+  data: MapData
+  cachedAt: number
+}
+
+export type {
+  GraphConfig,
+  MapData,
+  MapNode,
+  MapEdge,
+  GraphNode,
+  GraphLink,
+  Version,
+  ProcessedNode,
+  ProcessedLink,
+  ProcessedGraph,
+  CachedGraph,
+}

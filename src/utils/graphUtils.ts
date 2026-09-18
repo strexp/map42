@@ -1,5 +1,5 @@
 // src/utils/graphUtils.ts
-import type { GraphLink, GraphNode, MapEdge, MapNode } from '../types'
+import type { GraphLink, GraphNode, MapEdge, MapNode, ProcessedGraph } from '../types'
 
 export const processGraphData = (rawNodes: MapNode[], rawEdges: MapEdge[]) => {
   const nodesMap = new Map<string, GraphNode>()
@@ -40,4 +40,41 @@ export const processGraphData = (rawNodes: MapNode[], rawEdges: MapEdge[]) => {
   })
 
   return { nodes: processedNodes, links: processedEdges, nodesMap }
+}
+
+// Rebuild the object graph (Sets / cross references) from the worker payload.
+export const hydrateProcessedGraph = (processed: ProcessedGraph) => {
+  const nodes: GraphNode[] = processed.nodes.map((n) => ({
+    id: n.id,
+    asn: n.asn,
+    name: n.name,
+    size: n.size,
+    centrality: n.centrality,
+    val: n.val,
+    peers: new Set(),
+    links: [],
+  }))
+  const nodesMap = new Map(nodes.map((node) => [node.id, node]))
+
+  for (const processedNode of processed.nodes) {
+    const node = nodesMap.get(processedNode.id)
+    if (!node) continue
+    for (const peerId of processedNode.peerIds) {
+      const peer = nodesMap.get(peerId)
+      if (peer) node.peers.add(peer)
+    }
+  }
+
+  const links: GraphLink[] = processed.links.map((l) => {
+    const link: GraphLink = { source: l.source, target: l.target, _state: 0 }
+    const source = nodesMap.get(l.source)
+    const target = nodesMap.get(l.target)
+    if (source && target) {
+      source.links.push(link)
+      target.links.push(link)
+    }
+    return link
+  })
+
+  return { nodes, links }
 }

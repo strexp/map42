@@ -8,7 +8,11 @@
         type="text"
         placeholder="Search ASN or name…"
         aria-label="Search ASN or name"
+        role="combobox"
+        aria-autocomplete="list"
+        :aria-expanded="searchResults.length > 0"
         @input="onInput"
+        @keydown="onKeydown"
       />
       <button
         v-if="searchQuery"
@@ -21,12 +25,21 @@
     </div>
 
     <transition name="results">
-      <ul v-if="searchResults.length > 0" class="search-results hud-panel">
+      <ul
+        v-if="searchResults.length > 0"
+        ref="listRef"
+        class="search-results hud-panel"
+        role="listbox"
+      >
         <li
-          v-for="node in searchResults"
+          v-for="(node, index) in searchResults"
           :key="node.id"
           class="result-item"
+          :class="{ 'is-active': index === activeIndex }"
+          role="option"
+          :aria-selected="index === activeIndex"
           @click="$emit('select', node)"
+          @mouseenter="activeIndex = index"
         >
           <span class="result-asn">{{ node.asn }}</span>
           <span class="result-name">{{ node.name }}</span>
@@ -37,21 +50,62 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, ref, watch } from 'vue'
 import type { PropType } from 'vue'
 import { Search, X } from 'lucide-vue-next'
 import type { GraphNode } from '../types'
 
-defineProps({
+const props = defineProps({
   searchQuery: { type: String, default: '' },
   searchResults: { type: Array as PropType<GraphNode[]>, default: () => [] },
 })
 
 const emit = defineEmits(['update:searchQuery', 'search', 'clear', 'select'])
 
+const listRef = ref<HTMLElement | null>(null)
+const activeIndex = ref(-1)
+
+watch(
+  () => props.searchResults,
+  (results) => {
+    activeIndex.value = results.length > 0 ? 0 : -1
+  },
+)
+
 const onInput = (e: Event) => {
   const val = (e.target as HTMLInputElement).value
   emit('update:searchQuery', val)
   emit('search')
+}
+
+const moveActive = (delta: number) => {
+  const count = props.searchResults.length
+  if (count === 0) return
+  activeIndex.value = (activeIndex.value + delta + count) % count
+  nextTick(() => {
+    listRef.value?.children[activeIndex.value]?.scrollIntoView({ block: 'nearest' })
+  })
+}
+
+const onKeydown = (e: KeyboardEvent) => {
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault()
+      moveActive(1)
+      break
+    case 'ArrowUp':
+      e.preventDefault()
+      moveActive(-1)
+      break
+    case 'Enter': {
+      const node = props.searchResults[activeIndex.value]
+      if (node) emit('select', node)
+      break
+    }
+    case 'Escape':
+      emit('clear')
+      break
+  }
 }
 </script>
 
@@ -137,7 +191,8 @@ const onInput = (e: Event) => {
     border-color 0.15s ease;
 }
 
-.result-item:hover {
+.result-item:hover,
+.result-item.is-active {
   background: var(--accent-soft);
   border-left-color: var(--accent);
 }
