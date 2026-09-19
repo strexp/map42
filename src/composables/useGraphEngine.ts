@@ -71,6 +71,9 @@ export function useGraphEngine() {
     )
 
     graphInstance.value = g
+    if (import.meta.env.DEV) {
+      ;(globalThis as unknown as { __forceGraph?: GraphInstance }).__forceGraph = g
+    }
     selectedRef = selectedNode
     highlight1Ref = highlightNodes
     highlight2Ref = highlight2Nodes
@@ -106,6 +109,19 @@ export function useGraphEngine() {
         controls.autoRotate = false
       }
     })
+
+    // three's OrbitControls only records pointer positions for touch pointers,
+    // but `3d-force-graph` synthesises a touch-style `pointerup` when a node
+    // drag ends. If the real pointer is still tracked (e.g. it left the canvas
+    // mid-drag) that synthetic event reads an undefined position and throws.
+    // Recording every pointer keeps `_pointerPositions` populated.
+    const orbitInternals = controls as unknown as {
+      _trackPointer?: (event: PointerEvent) => void
+      domElement?: HTMLElement
+    }
+    const trackPointer = (event: PointerEvent) => orbitInternals._trackPointer?.(event)
+    orbitInternals.domElement?.addEventListener('pointerdown', trackPointer)
+    orbitInternals.domElement?.addEventListener('pointermove', trackPointer)
 
     // --- Node picking ---
     // Visual spheres are drawn by `NodeRenderer`; `3d-force-graph` only keeps
