@@ -41,6 +41,8 @@ export function useGraphEngine() {
   let highlight1Ref: { value: Set<string> } | null = null
   let highlight2Ref: { value: Set<string> } | null = null
   let configRef: GraphConfig | null = null
+  let bloomPass: UnrealBloomPass | null = null
+  let smaaPass: SMAAPass | null = null
 
   const textHeightOf = (node: GraphNode) => (node.size || 1) * graphconfig.size.textHeightFactor
 
@@ -141,7 +143,7 @@ export function useGraphEngine() {
 
     // --- Post Processing ---
     const composer = g.postProcessingComposer()
-    const bloomPass = new UnrealBloomPass(
+    bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
       graphconfig.passes.bloom.strength,
       graphconfig.passes.bloom.radius,
@@ -149,11 +151,15 @@ export function useGraphEngine() {
     )
     composer.addPass(bloomPass)
 
-    const smaaPass = new SMAAPass()
+    smaaPass = new SMAAPass()
     composer.addPass(smaaPass)
 
     // --- Initial Background ---
     updateBackground(config.showBg)
+
+    // Release the WebGL context when the page is reloaded/closed. Vue's
+    // `onUnmounted` does not run on navigation, so this is the only chance.
+    window.addEventListener('pagehide', disposeGraph)
   }
 
   const applyRenderState = () => {
@@ -208,7 +214,12 @@ export function useGraphEngine() {
     controls.target.set(x, y, z)
   }
 
-  onUnmounted(() => {
+  const disposeGraph = () => {
+    const g = graphInstance.value
+    if (!g) return
+
+    window.removeEventListener('pagehide', disposeGraph)
+
     linkRenderer?.dispose()
     nodeRenderer?.dispose()
     textRenderer?.dispose()
@@ -220,7 +231,27 @@ export function useGraphEngine() {
     highlight1Ref = null
     highlight2Ref = null
     configRef = null
-    graphInstance.value?._destructor()
+
+    // `EffectComposer.dispose()` only frees the composer's own buffers, not the
+    // render targets owned by the passes, so release those explicitly.
+    bloomPass?.dispose()
+    smaaPass?.dispose()
+    bloomPass = null
+    smaaPass = null
+
+    const renderer = g.renderer()
+    g._destructor()
+    // `WebGLRenderer.dispose()` leaves the GL context alive; Firefox then keeps
+    // its GPU memory across reloads until it accumulates and exhausts VRAM.
+    renderer.forceContextLoss()
+    renderer.dispose()
+
+    graphInstance.value = null
+  }
+
+  onUnmounted(() => {
+    window.removeEventListener('pagehide', disposeGraph)
+    disposeGraph()
   })
 
   return {
