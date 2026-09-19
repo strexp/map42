@@ -53,8 +53,8 @@ defineEmits<{ dismiss: [] }>()
     10px 100%,
     0 calc(100% - 10px)
   );
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .warning-pulse {

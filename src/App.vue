@@ -148,8 +148,8 @@ onMounted(() => {
   background: var(--bg-panel);
   border: 1px solid var(--border-hud);
   clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .version-btn {
@@ -200,8 +200,8 @@ onMounted(() => {
   background: var(--bg-panel);
   border: 1px solid var(--border-hud);
   clip-path: var(--hud-clip);
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .status-title {
