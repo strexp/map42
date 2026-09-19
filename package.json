@@ -6,6 +6,9 @@
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },
+  "overrides": {
+    "three": "$three"
+  },
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
